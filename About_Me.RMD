@@ -1,0 +1,37 @@
+---
+title: "About_Me"
+author: "Shijo Joseph"
+date: "11/14/2021"
+output: html_document
+---
+
+
+## About Me
+
+### Name
+Shijo Joseph
+
+### Picture
+
+![Shijo Joseph](shijo_small.jpg)
+
+### Where I am from
+
+Raised in Philadelphia (I have that grit :) ).  Born in Baghdad and but im a full blooded Indian.
+
+### Interests
+
+Kickboxing and swimming for fun.  I have a couple aquariums. I also play video games (mostly Halo)
+
+###  Where do I work?
+
+Frontier Communications for the past 10 years as a BI Developer.  Before that I was was with IBM as consultant for Cognos TM1.
+
+### Where did I go to School?
+
+I went to Drexel University for my Bachelors in Comp Engineering.  Currently pursuing a MS in Data Science at SMU.
+
+
+
+#### The other tabs represent some work anlayses that I have completed. Tab through them and check them out!!!
+
