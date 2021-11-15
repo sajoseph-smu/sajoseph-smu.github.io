@@ -1,0 +1,11 @@
+---
+title: "Index"
+author: "Shijo Joseph"
+date: "11/14/2021"
+output: html_document
+---
+
+# The Simple Yet Awesome Website
+## Note: The 6 lines of text above are YaML tags
+### We will Knit the RMD to a html file next.
+then push index.html to the github.io repo.
