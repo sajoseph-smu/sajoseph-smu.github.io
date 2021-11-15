@@ -1,0 +1,191 @@
+---
+title: "Beer Study"
+author: "Shijo Joseph"
+date: "11/15/2021"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo = FALSE}
+
+library(shiny)
+library(readr)
+library(tidyr) 
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(e1071)
+library(class)
+library(stringr)
+library(tidycensus)
+library(maps)
+
+library(mapproj)
+
+
+Breweries <- read_csv("https://raw.githubusercontent.com/sajoseph-smu/Case-Study-1---Budwieser/main/Breweries.csv", show_col_types = FALSE) 
+
+Beers <- read_csv("https://raw.githubusercontent.com/sajoseph-smu/Case-Study-1---Budwieser/main/Beers.csv", show_col_types = FALSE)
+
+
+names(Beers)[5] <- "Brew_ID"
+names(Breweries)[2] <- "Brewery_Name"
+bbdf <- merge(Beers,Breweries, by = "Brew_ID")
+
+bbdf_clean = na.omit(bbdf)
+
+
+
+lookup = data.frame(abb = state.abb, State = state.name)
+bbdf_map = merge(bbdf, lookup, by.x = "State", by.y = "abb")
+colnames(bbdf_map)[1] = "StateCode"
+colnames(bbdf_map)[11] = "State"
+
+bbdf_map$region <- tolower(bbdf_map$State)
+bbdf_map_summary = bbdf_map %>% group_by(region) %>% summarize(cnt = n(), meanABV = mean(ABV, na.rm = TRUE), meanIBU = mean(IBU,  na.rm = TRUE))
+
+
+# Getting population data from the ACS for 5 year ( latest year is 2019)
+v19 <- load_variables(2019, "acs5")
+pop2019 = get_acs(geography = "state", variable = "B01003_001", year = 2019)
+ 
+# creating a region and a per 100K count for population estimate
+pop2019$region = tolower(pop2019$NAME)
+pop2019$per100k = pop2019$estimate / 100000
+
+
+bbdf_map_summary2 = bbdf_map_summary %>% merge(pop2019[, c("region","per100k")], by="region", all.x=T)
+
+bbdf_map_summary2$perCapita = bbdf_map_summary2$cnt / bbdf_map_summary2$per100k 
+
+states <- map_data("state")
+map.df <- bbdf_map_summary2 %>% merge(states, by="region", all.x=T)
+
+map.df <- map.df[order(map.df$order),]
+
+
+# Define server logic required to draw a histogram ----
+server <- function(input, output, session) {
+  
+  # Histogram of the Old Faithful Geyser Data ----
+  # with requested number of bins
+  # This expression that generates a histogram is wrapped in a call
+  # to renderPlot to indicate that:
+  #
+  # 1. It is "reactive" and therefore should be automatically
+  #    re-executed when inputs (input$bins) change
+
+  bbdf_plot = reactive( bbdf_clean)
+
+  
+  # 2. Its output type is a plot
+  output$distPlot <- renderPlot({
+    
+    if(input$State == 'No Filter'){
+      bbdf_plot = bbdf_clean
+    } else {
+      bbdf_plot = bbdf_clean %>% filter(State == input$State)
+    }
+    
+        if(input$select == "ABV")
+    {
+    x    <- bbdf_plot$ABV
+    ttle = 'ABV'
+    bins <- seq(min(x), max(x), length.out = input$bins + 1)
+        } else {
+             x    <- bbdf_plot$IBU
+             ttle = 'IBU'
+    bins <- seq(min(x), max(x), length.out = input$bins + 1) 
+        }
+    
+    
+    if(input$graph == "Histogram"){
+          hist(x, breaks = bins, col = "#75AADB", border = "white",
+                  main = paste("Histogram of",ttle))
+    }else if(input$graph == "Boxplot"){
+          bbdf_plot %>% ggplot(aes(x)) + geom_boxplot() + labs(title = paste("Boxplot of Beers",ttle))
+    } else if(input$graph == "Scatterplot" & input$reglmFlag == 'No'){
+      bbdf_plot %>% ggplot(aes(x=IBU, y = ABV)) + geom_point() + labs(title = "Scatterplot of ABV vs IBU")
+      } else if(input$graph == "Scatterplot" & input$reglmFlag == 'Yes'){
+         bbdf_plot %>% ggplot(aes(x=IBU, y = ABV)) + geom_point() + labs(title = "Scatterplot of ABV vs IBU") + geom_smooth(method = "lm")
+      } else {
+        
+ggplot(map.df, aes(x=long,y=lat,group=group))+
+  geom_polygon(aes(fill=perCapita))+
+  geom_path()+ 
+  scale_fill_gradientn(colours=rev(heat.colors(10)),na.value="grey90")+ggtitle("Per Capita by State")+
+  coord_map()
+      }
+    
+    
+  
+  })
+  
+}
+
+ui <- fluidPage(
+  
+  # App title ----
+  titlePanel("Beer Study"),
+  
+  # Sidebar layout with input and output definitions ----
+  sidebarLayout(
+    
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+      
+      
+            #Copy the line below to make a select box 
+       selectInput("select", label = h3("ABV or IBU"), 
+                    choices = list("ABV" = "ABV", "IBU" = "IBU"), 
+                    selected = 1),
+       
+      #Copy the line below to make a select box 
+      selectInput("graph", label = h3("Histogram or Boxplot"), 
+                    choices = list("Histogram" = "Histogram", "Boxplot" = "Boxplot", "Scatterplot" = "Scatterplot", "Map" = "Map"), 
+                    selected = 1),
+      
+           #Copy the line below to make a select box 
+      selectizeInput("State", label = h3("Filter on State"), 
+                   choices = c('No Filter', bbdf_clean$State), 
+                    selected = 1),
+      
+      #Input: Slider for the number of bins ----
+      sliderInput(inputId = "bins",
+                  label = "Number of bins:",
+                  min = 1,
+                  max = 50,
+                  value = 30),
+      
+      radioButtons("reglmFlag", label = h3("Add Regression line to Scatterplot?"),
+                   choices = c('No','Yes'), selected = "No" ),
+      
+
+                    hr(),
+                    fluidRow(column(4, verbatimTextOutput("value")))
+    ),
+    
+    # Main panel for displaying outputs ----
+    mainPanel(
+      
+      # Output: Histogram ----
+      plotOutput(outputId = "distPlot")
+      
+    )
+  )
+)
+
+
+
+
+shinyApp(ui, server)
+
+```
+
+
+
+
