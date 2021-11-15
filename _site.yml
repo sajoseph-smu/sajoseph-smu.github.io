@@ -4,5 +4,8 @@ navbar:
   left:
     - text: "Home"
       href: index.html
-    - text: "CLT"
-      href: CLT_2.html
+    - text: "About Me"
+      href: About_Me.html
+    - text: "Case Study 1"
+      href: DEA1_Joseph_Yip.html
+      
